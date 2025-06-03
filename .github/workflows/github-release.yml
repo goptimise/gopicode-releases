@@ -34,21 +34,21 @@ jobs:
         if: inputs.stable == true
         uses: softprops/action-gh-release@v1
         with:
-          repository: ${{ github.repository_owner }}/openvscode-server
+          repository: ${{ github.repository_owner }}/gopicode-server
           target_commitish: ${{ inputs.release_commit }}
           body: OpenVSCode Server v${{ inputs.version }}
-          tag_name: openvscode-server-v${{ inputs.version }}
+          tag_name: gopicode-server-v${{ inputs.version }}
           token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
-          files: artifacts/**/openvscode-server-*.tar.gz
+          files: artifacts/**/gopicode-server-*.tar.gz
 
       - name: Delete previous insiders release
         if: inputs.stable == false
         uses: dev-drprasad/delete-older-releases@v0.2.0
         with:
-          repo: ${{ github.repository_owner }}/openvscode-server
+          repo: ${{ github.repository_owner }}/gopicode-server
           keep_latest: 0
           delete_tags: true
-          delete_tag_pattern: openvscode-server-insiders
+          delete_tag_pattern: gopicode-server-insiders
         env:
           GITHUB_TOKEN: ${{ secrets.VSCODE_GITHUB_TOKEN }}
       - name: Sleep
@@ -58,13 +58,13 @@ jobs:
         if: inputs.stable == false
         uses: softprops/action-gh-release@v1
         with:
-          repository: ${{ github.repository_owner }}/openvscode-server
+          repository: ${{ github.repository_owner }}/gopicode-server
           target_commitish: ${{ inputs.release_commit }}
           body: OpenVSCode Server Insiders v${{ inputs.version }}
-          tag_name: openvscode-server-insiders-v${{ inputs.version }}
+          tag_name: gopicode-server-insiders-v${{ inputs.version }}
           prerelease: true
           token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
-          files: artifacts/**/openvscode-server-*.tar.gz
+          files: artifacts/**/gopicode-server-*.tar.gz
 
       - name: Get previous job's status
         id: lastrun

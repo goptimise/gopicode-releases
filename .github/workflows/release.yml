@@ -36,10 +36,10 @@ jobs:
         include:
         - vscode_arch: x64
           npm_arch: x64
-          deps_container: gitpod/openvscode-server-linux-build-agent:centos7-devtoolset8-x64
+          deps_container: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-x64
         - vscode_arch: arm64
           npm_arch: arm64
-          deps_container: gitpod/openvscode-server-linux-build-agent:centos7-devtoolset8-arm64
+          deps_container: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-arm64
         - vscode_arch: armhf
           npm_arch: arm
 
@@ -58,18 +58,18 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/openvscode-server
+          repository: ${{ github.repository_owner }}/gopicode-server
           ref: ${{ env.RELEASE_COMMIT }}
           fetch-depth: 20
-          path: openvscode-server
+          path: gopicode-server
           token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: ./openvscode-server/.nvmrc
+          node-version-file: ./gopicode-server/.nvmrc
 
       - name: Setup system services
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           # Start X server
@@ -88,7 +88,7 @@ jobs:
           sudo service xvfb start
 
       - name: Compute node modules cache key
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         id: nodeModulesCacheKey
         run: |
           mkdir -p .build
@@ -97,10 +97,10 @@ jobs:
         id: cacheNodeModules
         uses: actions/cache@v4
         with:
-          path: "openvscode-server/**/node_modules"
+          path: "gopicode-server/**/node_modules"
           key: ${{ runner.os }}-cacheNodeModulesLinux-${{ steps.nodeModulesCacheKey.outputs.value }}
       - name: Get npm cache directory path
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         id: npmCacheDirPath
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
@@ -113,7 +113,7 @@ jobs:
           restore-keys: ${{ runner.os }}-npmCacheDir-
 
       - name: Override gnu target for arm64 and arm
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         if: matrix.vscode_arch == 'arm64' || matrix.vscode_arch == 'armhf'
         run: |
           set -e
@@ -136,7 +136,7 @@ jobs:
           echo "$includes" > "$HOME/.gyp/include.gypi"
 
       - name: Execute npm
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -171,7 +171,7 @@ jobs:
           done
 
       - name: Update product.json
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           nameShort=$(jq --raw-output '.nameShort' product.json)
@@ -190,7 +190,7 @@ jobs:
           jq '{quality,nameLong,nameShort}' product.json
 
       - name: Prepare for distribution
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           base_commit_msg="code web server initial commit"
@@ -209,13 +209,13 @@ jobs:
 
       - name: Download playwright
         if: matrix.vscode_arch == 'x64'
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           npm run playwright-install
 
       - name: Build integration tests
         if: matrix.vscode_arch == 'x64'
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           npm run gulp \
@@ -238,17 +238,17 @@ jobs:
 
       - name: Compile Integration Tests
         if: matrix.vscode_arch == 'x64'
-        working-directory: ./openvscode-server/test/integration/browser
+        working-directory: ./gopicode-server/test/integration/browser
         run: npm run compile
 
       - name: Compile Smoke Tests
         if: matrix.vscode_arch == 'x64'
-        working-directory: ./openvscode-server/test/smoke
+        working-directory: ./gopicode-server/test/smoke
         run: npm run compile
 
       - name: Run integration tests
         if: matrix.vscode_arch == 'x64'
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           VSCODE_REMOTE_SERVER_PATH="$GITHUB_WORKSPACE/vscode-reh-web-linux-${{ matrix.vscode_arch }}" \
@@ -256,7 +256,7 @@ jobs:
 
       # - name: Run smoke tests
       #   if: matrix.vscode_arch == 'x64'
-      #   working-directory: ./openvscode-server
+      #   working-directory: ./gopicode-server
       #   run: |
       #     set -e
       #     VSCODE_REMOTE_SERVER_PATH="$GITHUB_WORKSPACE/vscode-reh-web-linux-${{ matrix.vscode_arch }}" \
@@ -266,10 +266,10 @@ jobs:
         id: bundle_tar
         run: |
           set -e
-          version=$(node -p -e "require('./openvscode-server/package.json').version")
-          release_commit=$(git -C openvscode-server rev-parse "${RELEASE_COMMIT}")
+          version=$(node -p -e "require('./gopicode-server/package.json').version")
+          release_commit=$(git -C gopicode-server rev-parse "${RELEASE_COMMIT}")
           quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
-          name="openvscode-server${quality_name}-v${version}-linux-${{ matrix.vscode_arch }}"
+          name="gopicode-server${quality_name}-v${version}-linux-${{ matrix.vscode_arch }}"
           mv vscode-reh-web-linux-${{ matrix.vscode_arch }} ${name}
           tar -czf ${name}.tar.gz ${name}
 
@@ -281,7 +281,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.vscode_arch }}
-          path: openvscode-server-*.tar.gz
+          path: gopicode-server-*.tar.gz
 
       - name: Get previous job's status
         id: lastrun

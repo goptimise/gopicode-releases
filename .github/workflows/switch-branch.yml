@@ -54,8 +54,8 @@ jobs:
 
             const getNextReleaseTag = async () => {
                 const releaseResult = await github.rest.repos.getLatestRelease({
-                    owner: 'gitpod-io',
-                    repo: 'openvscode-server',
+                    owner: 'goptimise',
+                    repo: 'gopicode-server',
                 });
                 return inc(releaseResult.data.tag_name.split("-").at(-1), 'minor');
             }
@@ -108,7 +108,7 @@ jobs:
 
             if (branchExists) {
                 replaceInFile('${{ github.workspace }}/gitpod/.github/workflows/code-nightly.yml', (object) =>
-                    object.replace(/https:\/\/api.github.com\/repos\/gitpod-io\/openvscode-server\/commits\/gp-code\/release\/\d{1,5}\.\d{1,5}/i, 'https://api.github.com/repos/goptimise/gopicode-server/commits/gp-code/main'))
+                    object.replace(/https:\/\/api.github.com\/repos\/goptimise\/gopicode-server\/commits\/gp-code\/release\/\d{1,5}\.\d{1,5}/i, 'https://api.github.com/repos/goptimise/gopicode-server/commits/gp-code/main'))
             } else {
                 replaceInFile('${{ github.workspace }}/gitpod/.github/workflows/code-nightly.yml', (object) =>
                     object.replace('https://api.github.com/repos/goptimise/gopicode-server/commits/gp-code/main', `https://api.github.com/repos/goptimise/gopicode-server/commits/gp-code/release/${nextTag}`))

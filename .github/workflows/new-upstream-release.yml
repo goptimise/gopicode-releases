@@ -64,7 +64,7 @@ jobs:
               console.log(e);
             }
 
-            // If we already created the release branch in openvscode-server, don't create a notification
+            // If we already created the release branch in gopicode-server, don't create a notification
             return releaseBranch ? false : true;
 
       # - name: Slack Notification

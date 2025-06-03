@@ -39,9 +39,9 @@ jobs:
       
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository_owner }}/openvscode-server
+          repository: ${{ github.repository_owner }}/gopicode-server
           ref: ${{ env.RELEASE_COMMIT }}
-          path: openvscode-server
+          path: gopicode-server
           token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
 
       - name: Auth Google Cloud SDK
@@ -64,17 +64,17 @@ jobs:
         run: npm install -g yarn
 
       - name: Compute node modules cache key
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         id: nodeModulesCacheKey
         run: echo "value=$(node build/azure-pipelines/common/computeNodeModulesCacheKey.js x64)" >> $GITHUB_OUTPUT
       - name: Cache node modules
         id: cacheNodeModules
         uses: actions/cache@v3
         with:
-          path: "openvscode-server/**/node_modules"
+          path: "gopicode-server/**/node_modules"
           key: ${{ runner.os }}-cacheNodeModulesLinux-${{ steps.nodeModulesCacheKey.outputs.value }}
       - name: Get yarn cache directory path
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         id: yarnCacheDirPath
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
@@ -86,15 +86,15 @@ jobs:
           key: ${{ runner.os }}-yarnCacheDir-${{ steps.nodeModulesCacheKey.outputs.value }}
           restore-keys: ${{ runner.os }}-yarnCacheDir-
       - name: Execute yarn
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           VSCODE_SKIP_NODE_VERSION_CHECK: 1
           npm_config_arch: x64
-          VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME: gitpod/openvscode-server-linux-build-agent:centos7-devtoolset8-x64
-          VSCODE_HOST_MOUNT: ${{ github.workspace }}/openvscode-server
+          VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-x64
+          VSCODE_HOST_MOUNT: ${{ github.workspace }}/gopicode-server
         run: |
           set -e
 
@@ -104,16 +104,16 @@ jobs:
             -e VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME -e VSCODE_HOST_MOUNT \
             -e ELECTRON_SKIP_BINARY_DOWNLOAD -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD \
             -e VSCODE_SKIP_NODE_VERSION_CHECK \
-            -v $GITHUB_WORKSPACE/openvscode-server:/home/builduser/openvscode-server \
+            -v $GITHUB_WORKSPACE/gopicode-server:/home/builduser/gopicode-server \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -u 1001:121 \
-            -w /home/builduser/openvscode-server gitpod/openvscode-server-linux-build-agent:bionic-$VSCODE_ARCH \
+            -w /home/builduser/gopicode-server gitpod/gopicode-server-linux-build-agent:bionic-$VSCODE_ARCH \
             /bin/bash -c "./build/azure-pipelines/linux/install.sh"
 
-          sudo chown -R $USER:$USER $GITHUB_WORKSPACE/openvscode-server
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE/gopicode-server
 
       - name: Update product.json
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           nameShort=$(jq --raw-output '.nameShort' product.json)
@@ -134,7 +134,7 @@ jobs:
           jq '{quality,nameLong,nameShort}' product.json
 
       - name: Prepare for distribution
-        working-directory: ./openvscode-server
+        working-directory: ./gopicode-server
         run: |
           set -e
           yarn gulp compile-build
@@ -171,8 +171,8 @@ jobs:
         id: release_data
         run: |
           set -e
-          version=$(node -p -e "require('./openvscode-server/package.json').version")
-          release_commit=$(git -C openvscode-server rev-parse "${RELEASE_COMMIT}")
+          version=$(node -p -e "require('./gopicode-server/package.json').version")
+          release_commit=$(git -C gopicode-server rev-parse "${RELEASE_COMMIT}")
 
           echo "release_commit=${release_commit}" >> $GITHUB_OUTPUT
           echo "version=${version}" >> $GITHUB_OUTPUT

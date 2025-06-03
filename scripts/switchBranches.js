@@ -9,8 +9,8 @@ const replaceInFile = (file, transform) => {
 
 const getNextReleaseTag = async () => {
     const releaseResult = await github.rest.repos.getLatestRelease({
-        owner: 'gitpod-io',
-        repo: 'openvscode-server',
+        owner: 'goptimise',
+        repo: 'gopicode-server',
     });
     return inc(releaseResult.data.tag_name.split("-").at(-1), 'minor');
 }
