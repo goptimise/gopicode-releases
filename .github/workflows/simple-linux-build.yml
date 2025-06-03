@@ -49,7 +49,7 @@ jobs:
           repository: ${{ github.repository_owner }}/gopicode-server
           ref: ${{ env.RELEASE_COMMIT }}
           fetch-depth: 20
-          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+          # token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
