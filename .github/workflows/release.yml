@@ -62,7 +62,7 @@ jobs:
           ref: ${{ env.RELEASE_COMMIT }}
           fetch-depth: 20
           path: gopicode-server
-          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+          # token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -287,12 +287,12 @@ jobs:
         id: lastrun
         uses: filiptronicek/get-last-job-status@main
 
-      - name: Slack Notification
-        if: ${{ (success() && steps.lastrun.outputs.status == 'failed') || failure() }}
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: ${{ job.status }}
+      # - name: Slack Notification
+      #   if: ${{ (success() && steps.lastrun.outputs.status == 'failed') || failure() }}
+      #   uses: rtCamp/action-slack-notify@v2
+      #   env:
+      #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      #     SLACK_COLOR: ${{ job.status }}
 
   github-release:
     needs: build
@@ -302,18 +302,18 @@ jobs:
       release_commit: ${{ needs.build.outputs.release_commit }}
       version: ${{ needs.build.outputs.version }}
       stable: ${{ needs.build.outputs.quality == 'stable' }}
-    secrets:
-      VSCODE_GITHUB_TOKEN: ${{ secrets.VSCODE_GITHUB_TOKEN }}
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    # secrets:
+      # VSCODE_GITHUB_TOKEN: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+      # SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-  docker-release:
-    needs: [github-release, build]
-    if: github.event.inputs.uploadRelease == 'true' || github.event.workflow_run.conclusion == 'success'
-    uses: ./.github/workflows/docker-release.yml
-    with:
-      version: ${{ needs.build.outputs.version }}
-      stable: ${{ needs.build.outputs.quality == 'stable' }}
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+  # docker-release:
+  #   needs: [github-release, build]
+  #   if: github.event.inputs.uploadRelease == 'true' || github.event.workflow_run.conclusion == 'success'
+  #   uses: ./.github/workflows/docker-release.yml
+  #   with:
+  #     version: ${{ needs.build.outputs.version }}
+  #     stable: ${{ needs.build.outputs.quality == 'stable' }}
+  #   secrets:
+  #     DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  #     DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      # SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
