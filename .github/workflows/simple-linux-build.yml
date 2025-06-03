@@ -173,6 +173,15 @@ jobs:
         env:
           DISABLE_V8_COMPILE_CACHE: 1
 
+      - name: Debug build output
+        run: |
+          echo "=== Current directory contents ==="
+          ls -la
+          echo "=== Looking for vscode-reh directories ==="
+          find . -name "*vscode-reh*" -type d
+          echo "=== Looking for any linux build outputs ==="
+          find . -name "*linux*" -type d
+
       - name: Package Code Server
         id: bundle_tar
         run: |
@@ -182,7 +191,22 @@ jobs:
           quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
           name="gopicode-server${quality_name}-v${version}-linux-${{ matrix.vscode_arch }}"
           
-          mv vscode-reh-web-linux-${{ matrix.vscode_arch }} ${name}
+          # Check for different possible output directory names
+          if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ]; then
+            output_dir="vscode-reh-web-linux-${{ matrix.vscode_arch }}"
+          elif [ -d "../vscode-reh-web-linux-${{ matrix.vscode_arch }}" ]; then
+            output_dir="../vscode-reh-web-linux-${{ matrix.vscode_arch }}"
+          elif [ -d "vscode-reh-linux-${{ matrix.vscode_arch }}" ]; then
+            output_dir="vscode-reh-linux-${{ matrix.vscode_arch }}"
+          else
+            echo "Error: Could not find build output directory"
+            echo "Available directories:"
+            find . -name "*vscode*" -type d
+            exit 1
+          fi
+          
+          echo "Using output directory: $output_dir"
+          mv "$output_dir" ${name}
           tar -czf ${name}.tar.gz ${name}
           
           echo "release_commit=${release_commit}" >> $GITHUB_OUTPUT
