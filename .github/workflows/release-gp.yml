@@ -42,7 +42,7 @@ jobs:
           repository: ${{ github.repository_owner }}/gopicode-server
           ref: ${{ env.RELEASE_COMMIT }}
           path: gopicode-server
-          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+          # token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
 
       - name: Auth Google Cloud SDK
         uses: google-github-actions/auth@v0
