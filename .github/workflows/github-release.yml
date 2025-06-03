@@ -14,11 +14,11 @@ on:
         description: 'Stable or insiders release'
         type: boolean
         required: true
-    secrets:
-      VSCODE_GITHUB_TOKEN:
-        required: true
-      SLACK_WEBHOOK:
-        required: true
+    # secrets:
+      # VSCODE_GITHUB_TOKEN:
+      #   required: true
+      # SLACK_WEBHOOK:
+      #   required: true
 
 jobs:
   github-release:
@@ -38,7 +38,7 @@ jobs:
           target_commitish: ${{ inputs.release_commit }}
           body: OpenVSCode Server v${{ inputs.version }}
           tag_name: gopicode-server-v${{ inputs.version }}
-          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+          # token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
           files: artifacts/**/gopicode-server-*.tar.gz
 
       - name: Delete previous insiders release
@@ -49,8 +49,8 @@ jobs:
           keep_latest: 0
           delete_tags: true
           delete_tag_pattern: gopicode-server-insiders
-        env:
-          GITHUB_TOKEN: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+        # env:
+          # GITHUB_TOKEN: ${{ secrets.VSCODE_GITHUB_TOKEN }}
       - name: Sleep
         if: inputs.stable == false
         run: sleep 30s
@@ -63,7 +63,7 @@ jobs:
           body: OpenVSCode Server Insiders v${{ inputs.version }}
           tag_name: gopicode-server-insiders-v${{ inputs.version }}
           prerelease: true
-          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+          # token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
           files: artifacts/**/gopicode-server-*.tar.gz
 
       - name: Get previous job's status
