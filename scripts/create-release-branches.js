@@ -11,8 +11,8 @@ if (!token) {
 const PaginatingOctokit = Octokit.plugin(paginateRest);
 const octokit = new PaginatingOctokit({ auth: token });
 
-const owner = "gitpod-io";
-const repo = "openvscode-server";
+const owner = "goptimise";
+const repo = "gopicode-server";
 
 const getSha = async (branch) => {
     const { data } = await octokit.rest.repos.getBranch({

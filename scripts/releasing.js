@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 
 export const createReleasePr = async (version, commit) => {
   const octokit = getOctokit();
-  const [owner, repo] = ["gitpod-io", "gitpod"];
+  const [owner, repo] = ["goptimise", "gitpod"];
 
   const body = (await readFile("resources/insider.md", "utf-8")).replace(
     "`1.x.x`",
