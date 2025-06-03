@@ -1,0 +1,195 @@
+name: Build Linux Code Server
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit to build from'
+        required: true
+        default: 'main'
+      quality:
+        description: 'Quality'
+        required: true
+        type: choice
+        options:
+        - insider
+        - stable
+        default: insider
+
+env:
+  QUALITY: ${{ github.event.inputs.quality }}
+  RELEASE_COMMIT: ${{ github.event.inputs.commit }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+        - vscode_arch: x64
+          npm_arch: x64
+        # - vscode_arch: arm64
+        #   npm_arch: arm64
+        # - vscode_arch: armhf
+        #   npm_arch: arm
+
+    name: Build linux-${{ matrix.vscode_arch }}
+    env:
+      OS_NAME: 'linux'
+      VSCODE_ARCH: ${{ matrix.vscode_arch }}
+      NPM_REGISTRY: 'https://registry.npmjs.org'
+    
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/gopicode-server
+          ref: ${{ env.RELEASE_COMMIT }}
+          fetch-depth: 20
+          token: ${{ secrets.VSCODE_GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup system services
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y pkg-config \
+            dbus \
+            xvfb \
+            libgtk-3-0 \
+            libxkbfile-dev \
+            libkrb5-dev \
+            libgbm1 \
+            rpm
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Compute node modules cache key
+        id: nodeModulesCacheKey
+        run: |
+          mkdir -p .build
+          echo "value=$(node build/azure-pipelines/common/computeNodeModulesCacheKey.js linux ${{ matrix.vscode_arch }})" >> $GITHUB_OUTPUT
+
+      - name: Cache node modules
+        id: cacheNodeModules
+        uses: actions/cache@v4
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-cacheNodeModulesLinux-${{ steps.nodeModulesCacheKey.outputs.value }}
+
+      - name: Get npm cache directory path
+        id: npmCacheDirPath
+        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+      - name: Cache npm directory
+        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.npmCacheDirPath.outputs.dir }}
+          key: ${{ runner.os }}-npmCacheDir-${{ steps.nodeModulesCacheKey.outputs.value }}
+          restore-keys: ${{ runner.os }}-npmCacheDir-
+
+      - name: Install dependencies
+        if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: ${{ matrix.npm_arch }}
+        run: |
+          set -e
+          npm config set registry "$NPM_REGISTRY"
+          
+          cd ./build
+          npm ci
+          cd ..
+          
+          source ./build/azure-pipelines/linux/setup-env.sh
+          npm ci
+
+      - name: Update product.json
+        run: |
+          set -e
+          nameShort=$(jq --raw-output '.nameShort' product.json)
+          nameLong=$(jq --raw-output '.nameLong' product.json)
+          if [ "$QUALITY" = "insider" ]; then
+            nameShort="$nameShort - Insiders"
+            nameLong="$nameLong - Insiders"
+          fi
+          setQuality="setpath([\"quality\"]; \"$QUALITY\")"
+          setNameShort="setpath([\"nameShort\"]; \"$nameShort\")"
+          setNameLong="setpath([\"nameLong\"]; \"$nameLong\")"
+          jqCommands="${setQuality} | ${setNameShort} | ${setNameLong}"
+          cat product.json | jq "${jqCommands}" > product.json.tmp
+          mv product.json.tmp product.json
+
+      - name: Build Code Server
+        run: |
+          set -e
+          base_commit_msg="code web server initial commit"
+          base_commit=$(git log --pretty="%H" --max-count=1 --grep "${base_commit_msg}")
+          if [ -z "$base_commit" ]; then
+            echo "Could not find base commit"
+            exit 1
+          fi
+          distro_commit=$(git rev-parse "${base_commit}"~)
+          echo "distro_commit: ${distro_commit}"
+
+          VSCODE_DISTRO_COMMIT="${distro_commit}" \
+          npm run gulp vscode-reh-web-linux-${{ matrix.vscode_arch }}-min
+        env:
+          DISABLE_V8_COMPILE_CACHE: 1
+
+      - name: Package Code Server
+        id: bundle_tar
+        run: |
+          set -e
+          version=$(node -p -e "require('./package.json').version")
+          release_commit=$(git rev-parse "${RELEASE_COMMIT}")
+          quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
+          name="gopicode-server${quality_name}-v${version}-linux-${{ matrix.vscode_arch }}"
+          
+          mv vscode-reh-web-linux-${{ matrix.vscode_arch }} ${name}
+          tar -czf ${name}.tar.gz ${name}
+          
+          echo "release_commit=${release_commit}" >> $GITHUB_OUTPUT
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "quality=${QUALITY}" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.vscode_arch }}
+          path: gopicode-server-*.tar.gz
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: gopicode-server-v${{ needs.build.outputs.version }}
+          name: GopiCode Server v${{ needs.build.outputs.version }}
+          body: |
+            Linux Code Server build for commit ${{ needs.build.outputs.release_commit }}
+            Quality: ${{ needs.build.outputs.quality }}
+          files: artifacts/**/gopicode-server-*.tar.gz
+          draft: false
+          prerelease: ${{ needs.build.outputs.quality == 'insider' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

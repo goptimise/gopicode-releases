@@ -37,11 +37,11 @@ jobs:
         - vscode_arch: x64
           npm_arch: x64
           deps_container: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-x64
-        - vscode_arch: arm64
-          npm_arch: arm64
-          deps_container: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-arm64
-        - vscode_arch: armhf
-          npm_arch: arm
+        # - vscode_arch: arm64
+        #   npm_arch: arm64
+        #   deps_container: gitpod/gopicode-server-linux-build-agent:centos7-devtoolset8-arm64
+        # - vscode_arch: armhf
+        #   npm_arch: arm
 
     name: Build linux-${{ matrix.vscode_arch }}
     outputs:
@@ -112,28 +112,28 @@ jobs:
           key: ${{ runner.os }}-npmCacheDir-${{ steps.nodeModulesCacheKey.outputs.value }}
           restore-keys: ${{ runner.os }}-npmCacheDir-
 
-      - name: Override gnu target for arm64 and arm
-        working-directory: ./gopicode-server
-        if: matrix.vscode_arch == 'arm64' || matrix.vscode_arch == 'armhf'
-        run: |
-          set -e
-          includes=$(cat << 'EOF'
-          {
-            "target_defaults": {
-              "conditions": [
-                ["OS=='linux'", {
-                  'cflags_cc!': [ '-std=gnu++20' ],
-                  'cflags_cc': [ '-std=gnu++2a' ],
-                }]
-              ]
-            }
-          }
-          EOF
-          )
-          if [ ! -d "$HOME/.gyp" ]; then
-            mkdir -p "$HOME/.gyp"
-          fi
-          echo "$includes" > "$HOME/.gyp/include.gypi"
+      # - name: Override gnu target for arm64 and arm
+      #   working-directory: ./gopicode-server
+      #   if: matrix.vscode_arch == 'arm64' || matrix.vscode_arch == 'armhf'
+      #   run: |
+      #     set -e
+      #     includes=$(cat << 'EOF'
+      #     {
+      #       "target_defaults": {
+      #         "conditions": [
+      #           ["OS=='linux'", {
+      #             'cflags_cc!': [ '-std=gnu++20' ],
+      #             'cflags_cc': [ '-std=gnu++2a' ],
+      #           }]
+      #         ]
+      #       }
+      #     }
+      #     EOF
+      #     )
+      #     if [ ! -d "$HOME/.gyp" ]; then
+      #       mkdir -p "$HOME/.gyp"
+      #     fi
+      #     echo "$includes" > "$HOME/.gyp/include.gypi"
 
       - name: Execute npm
         working-directory: ./gopicode-server
