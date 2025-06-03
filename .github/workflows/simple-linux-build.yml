@@ -112,8 +112,33 @@ jobs:
           npm ci
           cd ..
           
-          source ./build/azure-pipelines/linux/setup-env.sh
+          # Skip setup-env.sh to avoid sysroot issues when building on same architecture
+          # source ./build/azure-pipelines/linux/setup-env.sh
           npm ci
+
+      # Alternative Docker-based approach (uncomment if above fails):
+      # - name: Install dependencies (Docker)
+      #   if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
+      #   env:
+      #     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      #     ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      #     npm_config_arch: ${{ matrix.npm_arch }}
+      #     VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME: gitpod/openvscode-server-linux-build-agent:centos7-devtoolset8-x64
+      #     VSCODE_HOST_MOUNT: ${{ github.workspace }}
+      #   run: |
+      #     set -e
+      #     npm config set registry "$NPM_REGISTRY"
+      #     
+      #     cd ./build
+      #     npm ci
+      #     cd ..
+      #     
+      #     docker run -e npm_config_arch -e NPM_REGISTRY \
+      #       -e VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME -e VSCODE_HOST_MOUNT \
+      #       -e ELECTRON_SKIP_BINARY_DOWNLOAD -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD \
+      #       -v $GITHUB_WORKSPACE:/home/builduser/workspace \
+      #       -w /home/builduser/workspace gitpod/openvscode-server-linux-build-agent:bionic-x64 \
+      #       /bin/bash -c "npm ci"
 
       - name: Update product.json
         run: |
