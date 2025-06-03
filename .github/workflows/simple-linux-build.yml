@@ -6,17 +6,18 @@ on:
         description: 'Commit to build from'
         required: true
         default: 'main'
-      quality:
-        description: 'Quality'
-        required: true
-        type: choice
-        options:
-        - insider
-        - stable
-        default: insider
+      # quality:
+      #   description: 'Quality'
+      #   required: true
+      #   type: choice
+      #   options:
+      #   - insider
+      #   - stable
+      #   default: insider
 
 env:
-  QUALITY: ${{ github.event.inputs.quality }}
+  # QUALITY: ${{ github.event.inputs.quality }}
+  QUALITY: 'stable'
   RELEASE_COMMIT: ${{ github.event.inputs.commit }}
 
 jobs:
@@ -98,6 +99,24 @@ jobs:
           key: ${{ runner.os }}-npmCacheDir-${{ steps.nodeModulesCacheKey.outputs.value }}
           restore-keys: ${{ runner.os }}-npmCacheDir-
 
+      - name: Get commit hash for build cache
+        id: commitHash
+        run: echo "value=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Cache VS Code build output
+        id: cacheVSCodeBuild
+        uses: actions/cache@v4
+        with:
+          path: |
+            vscode-reh-web-linux-${{ matrix.vscode_arch }}
+            vscode-reh-linux-${{ matrix.vscode_arch }}
+            out-vscode-reh-web-linux-${{ matrix.vscode_arch }}
+            .build/
+          key: ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}
+          restore-keys: |
+            ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-
+            ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-
+
       - name: Install dependencies
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         env:
@@ -141,14 +160,15 @@ jobs:
       #       /bin/bash -c "npm ci"
 
       - name: Update product.json
+        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
         run: |
           set -e
           nameShort=$(jq --raw-output '.nameShort' product.json)
           nameLong=$(jq --raw-output '.nameLong' product.json)
-          if [ "$QUALITY" = "insider" ]; then
-            nameShort="$nameShort - Insiders"
-            nameLong="$nameLong - Insiders"
-          fi
+          # if [ "$QUALITY" = "insider" ]; then
+          #   nameShort="$nameShort - Insiders"
+          #   nameLong="$nameLong - Insiders"
+          # fi
           setQuality="setpath([\"quality\"]; \"$QUALITY\")"
           setNameShort="setpath([\"nameShort\"]; \"$nameShort\")"
           setNameLong="setpath([\"nameLong\"]; \"$nameLong\")"
@@ -157,6 +177,7 @@ jobs:
           mv product.json.tmp product.json
 
       - name: Build Code Server
+        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
         run: |
           set -e
           base_commit_msg="code web server initial commit"
@@ -174,6 +195,7 @@ jobs:
           DISABLE_V8_COMPILE_CACHE: 1
 
       - name: Debug build output
+        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
         run: |
           echo "=== Current directory contents ==="
           ls -la
@@ -182,14 +204,21 @@ jobs:
           echo "=== Looking for any linux build outputs ==="
           find . -name "*linux*" -type d
 
+      - name: Show cache status and debug (when cache hit)
+        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit == 'true' }}
+        run: |
+          echo "✅ VS Code build was restored from cache! Skipped 35+ min build."
+          echo "=== Cached build directories found ==="
+          find . -name "*vscode-reh*" -type d
+
       - name: Package Code Server
         id: bundle_tar
         run: |
           set -e
           version=$(node -p -e "require('./package.json').version")
           release_commit=$(git rev-parse "${RELEASE_COMMIT}")
-          quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
-          name="gopicode-server${quality_name}-v${version}-linux-${{ matrix.vscode_arch }}"
+          # quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
+          name="gopicode-server-v${version}-linux-${{ matrix.vscode_arch }}"
           
           # Check for different possible output directory names
           if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ]; then
@@ -206,7 +235,8 @@ jobs:
           fi
           
           echo "Using output directory: $output_dir"
-          mv "$output_dir" ${name}
+          # Copy instead of move to preserve cache for next time
+          cp -r "$output_dir" ${name}
           tar -czf ${name}.tar.gz ${name}
           
           echo "release_commit=${release_commit}" >> $GITHUB_OUTPUT
@@ -218,6 +248,12 @@ jobs:
         with:
           name: linux-${{ matrix.vscode_arch }}
           path: gopicode-server-*.tar.gz
+
+      - name: Show build status
+        run: |
+          if [ "${{ steps.cacheVSCodeBuild.outputs.cache-hit }}" != "true" ]; then
+            echo "🔨 VS Code was built from scratch. Next run will be cached."
+          fi
 
   create-release:
     needs: build
@@ -239,6 +275,6 @@ jobs:
             Quality: ${{ needs.build.outputs.quality }}
           files: artifacts/**/gopicode-server-*.tar.gz
           draft: false
-          prerelease: ${{ needs.build.outputs.quality == 'insider' }}
+          # prerelease: ${{ needs.build.outputs.quality == 'insider' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
