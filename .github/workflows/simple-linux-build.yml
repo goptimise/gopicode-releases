@@ -24,6 +24,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    outputs:
+      version: ${{ steps.bundle_tar.outputs.version }}
+      release_commit: ${{ steps.bundle_tar.outputs.release_commit }}
+      quality: ${{ steps.bundle_tar.outputs.quality }}
+    
     strategy:
       fail-fast: true
       matrix:
@@ -117,15 +122,33 @@ jobs:
             ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-
             ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-
 
+      - name: Debug cache restore
+        run: |
+          echo "=== Cache Debug Information ==="
+          echo "Cache hit: ${{ steps.cacheVSCodeBuild.outputs.cache-hit }}"
+          echo "Current commit: ${{ steps.commitHash.outputs.value }}"
+          echo "Cache key used: ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}"
+          echo "=== Current directory structure ==="
+          ls -la
+          echo "=== Looking for vscode-reh directories ==="
+          find . -maxdepth 2 -name "*vscode-reh*" -type d -exec ls -la {} \; || echo "No vscode-reh directories found"
+
       - name: Check if build output exists
         id: buildExists
         run: |
           if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ] || [ -d "vscode-reh-linux-${{ matrix.vscode_arch }}" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "✅ Build output found (from cache or restore-keys match)"
+            echo "Found directories:"
+            ls -la | grep vscode-reh || echo "No vscode-reh directories visible with ls -la"
+            find . -maxdepth 2 -name "*vscode-reh*" -type d || echo "No vscode-reh directories found with find"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "❌ No build output found, will build from scratch"
+            echo "Current directory contents:"
+            ls -la
+            echo "Looking for any vscode-reh directories:"
+            find . -maxdepth 3 -name "*vscode-reh*" -type d || echo "No vscode-reh directories found"
           fi
 
       - name: Install dependencies
@@ -227,10 +250,24 @@ jobs:
         id: bundle_tar
         run: |
           set -e
-          version=$(node -p -e "require('./package.json').version")
+          
+          # Extract version with better error handling
+          if [ -f "package.json" ]; then
+            version=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
+            echo "Version extracted from package.json: ${version}"
+          else
+            echo "package.json not found, using fallback version"
+            version="unknown"
+          fi
+          
           release_commit=$(git rev-parse "${RELEASE_COMMIT}")
           # quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
           name="gopicode-server-v${version}-linux-${{ matrix.vscode_arch }}"
+          
+          echo "Packaging with version: ${version}"
+          echo "Package name will be: ${name}"
+          echo "Release commit: ${release_commit}"
+          echo "Quality: ${QUALITY}"
           
           # Check for different possible output directory names
           if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ]; then
@@ -250,6 +287,10 @@ jobs:
           # Copy instead of move to preserve cache for next time
           cp -r "$output_dir" ${name}
           tar -czf ${name}.tar.gz ${name}
+          
+          # Verify the created file
+          echo "Created archive: ${name}.tar.gz"
+          ls -la ${name}.tar.gz
           
           echo "release_commit=${release_commit}" >> $GITHUB_OUTPUT
           echo "version=${version}" >> $GITHUB_OUTPUT
@@ -283,6 +324,11 @@ jobs:
         with:
           path: artifacts/
 
+      - name: Display downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts/ -name "*.tar.gz" -exec ls -la {} \;
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -291,6 +337,9 @@ jobs:
           body: |
             Linux Code Server build for commit ${{ needs.build.outputs.release_commit }}
             Quality: ${{ needs.build.outputs.quality }}
+            
+            ## Download Links
+            - Linux x64: [gopicode-server-v${{ needs.build.outputs.version }}-linux-x64.tar.gz](https://github.com/${{ github.repository }}/releases/download/gopicode-server-v${{ needs.build.outputs.version }}/gopicode-server-v${{ needs.build.outputs.version }}-linux-x64.tar.gz)
           files: artifacts/**/gopicode-server-*.tar.gz
           draft: false
           # prerelease: ${{ needs.build.outputs.quality == 'insider' }}
