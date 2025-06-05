@@ -115,7 +115,6 @@ jobs:
           path: |
             vscode-reh-web-linux-${{ matrix.vscode_arch }}
             vscode-reh-linux-${{ matrix.vscode_arch }}
-            out-vscode-reh-web-linux-${{ matrix.vscode_arch }}
             .build/
           key: ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}
           restore-keys: |
@@ -132,16 +131,28 @@ jobs:
           ls -la
           echo "=== Looking for vscode-reh directories ==="
           find . -maxdepth 2 -name "*vscode-reh*" -type d -exec ls -la {} \; || echo "No vscode-reh directories found"
+          echo "=== Looking for any packaged directories that might have been cached ==="
+          find . -maxdepth 1 -name "gopicode-server-*" -type d || echo "No packaged directories found"
 
       - name: Check if build output exists
         id: buildExists
         run: |
+          # Check for raw build outputs first
           if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ] || [ -d "vscode-reh-linux-${{ matrix.vscode_arch }}" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Build output found (from cache or restore-keys match)"
+            echo "✅ Raw build output found (from cache or restore-keys match)"
             echo "Found directories:"
             ls -la | grep vscode-reh || echo "No vscode-reh directories visible with ls -la"
             find . -maxdepth 2 -name "*vscode-reh*" -type d || echo "No vscode-reh directories found with find"
+          # Check if we have a previously packaged directory from cache (this indicates cache pollution)
+          elif [ -d "gopicode-server-"*"-linux-${{ matrix.vscode_arch }}" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Found packaged directory from cache, but no raw build output - cache may be polluted"
+            echo "Packaged directories found:"
+            ls -la | grep gopicode-server || echo "No packaged directories visible"
+            echo "Will clean and rebuild to fix cache"
+            # Clean up any polluted cache directories
+            rm -rf gopicode-server-*-linux-${{ matrix.vscode_arch }}
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "❌ No build output found, will build from scratch"
@@ -168,6 +179,15 @@ jobs:
           # Skip setup-env.sh to avoid sysroot issues when building on same architecture
           # source ./build/azure-pipelines/linux/setup-env.sh
           npm ci
+
+      - name: Clean workspace before build
+        if: ${{ steps.buildExists.outputs.exists != 'true' }}
+        run: |
+          echo "🧹 Cleaning workspace before build"
+          # Remove any packaged directories from previous runs or cache pollution
+          rm -rf gopicode-server-*-linux-${{ matrix.vscode_arch }}
+          echo "Cleaned workspace. Current state:"
+          ls -la | grep -E "(vscode-reh|gopicode-server)" || echo "No build/package directories found"
 
       # Alternative Docker-based approach (uncomment if above fails):
       # - name: Install dependencies (Docker)
@@ -237,6 +257,13 @@ jobs:
           find . -name "*vscode-reh*" -type d
           echo "=== Looking for any linux build outputs ==="
           find . -name "*linux*" -type d
+
+      - name: Save build to cache (prevent cache pollution)
+        if: ${{ steps.buildExists.outputs.exists != 'true' && steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
+        run: |
+          echo "✅ Build completed successfully. Cache will be saved automatically."
+          echo "Raw build directories that will be cached:"
+          find . -maxdepth 1 -name "*vscode-reh*" -type d || echo "No vscode-reh directories found"
 
       - name: Show cache status and debug (when cache hit)
         if: ${{ steps.buildExists.outputs.exists == 'true' }}
