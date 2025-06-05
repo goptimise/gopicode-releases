@@ -117,6 +117,17 @@ jobs:
             ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-
             ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-
 
+      - name: Check if build output exists
+        id: buildExists
+        run: |
+          if [ -d "vscode-reh-web-linux-${{ matrix.vscode_arch }}" ] || [ -d "vscode-reh-linux-${{ matrix.vscode_arch }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Build output found (from cache or restore-keys match)"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "❌ No build output found, will build from scratch"
+          fi
+
       - name: Install dependencies
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         env:
@@ -160,7 +171,7 @@ jobs:
       #       /bin/bash -c "npm ci"
 
       - name: Update product.json
-        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
+        if: ${{ steps.buildExists.outputs.exists != 'true' }}
         run: |
           set -e
           nameShort=$(jq --raw-output '.nameShort' product.json)
@@ -177,7 +188,7 @@ jobs:
           mv product.json.tmp product.json
 
       - name: Build Code Server
-        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
+        if: ${{ steps.buildExists.outputs.exists != 'true' }}
         run: |
           set -e
           base_commit_msg="code web server initial commit"
@@ -195,7 +206,7 @@ jobs:
           DISABLE_V8_COMPILE_CACHE: 1
 
       - name: Debug build output
-        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit != 'true' }}
+        if: ${{ steps.buildExists.outputs.exists != 'true' }}
         run: |
           echo "=== Current directory contents ==="
           ls -la
@@ -205,10 +216,11 @@ jobs:
           find . -name "*linux*" -type d
 
       - name: Show cache status and debug (when cache hit)
-        if: ${{ steps.cacheVSCodeBuild.outputs.cache-hit == 'true' }}
+        if: ${{ steps.buildExists.outputs.exists == 'true' }}
         run: |
-          echo "✅ VS Code build was restored from cache! Skipped 35+ min build."
-          echo "=== Cached build directories found ==="
+          echo "✅ VS Code build was found! Skipped 35+ min build."
+          echo "Cache status: cache-hit=${{ steps.cacheVSCodeBuild.outputs.cache-hit }}"
+          echo "=== Build directories found ==="
           find . -name "*vscode-reh*" -type d
 
       - name: Package Code Server
@@ -251,7 +263,13 @@ jobs:
 
       - name: Show build status
         run: |
-          if [ "${{ steps.cacheVSCodeBuild.outputs.cache-hit }}" != "true" ]; then
+          if [ "${{ steps.buildExists.outputs.exists }}" == "true" ]; then
+            if [ "${{ steps.cacheVSCodeBuild.outputs.cache-hit }}" == "true" ]; then
+              echo "✅ Used exact cache match - super fast!"
+            else
+              echo "✅ Used cached build from similar commit - still fast!"
+            fi
+          else
             echo "🔨 VS Code was built from scratch. Next run will be cached."
           fi
 
