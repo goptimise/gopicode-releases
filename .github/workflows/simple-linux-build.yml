@@ -116,17 +116,17 @@ jobs:
             vscode-reh-web-linux-${{ matrix.vscode_arch }}
             vscode-reh-linux-${{ matrix.vscode_arch }}
             .build/
-          key: ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}
+          key: ${{ runner.os }}-vscode-build-v2-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}
           restore-keys: |
-            ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-
-            ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-
+            ${{ runner.os }}-vscode-build-v2-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-
+            ${{ runner.os }}-vscode-build-v2-${{ matrix.vscode_arch }}-
 
       - name: Debug cache restore
         run: |
           echo "=== Cache Debug Information ==="
           echo "Cache hit: ${{ steps.cacheVSCodeBuild.outputs.cache-hit }}"
           echo "Current commit: ${{ steps.commitHash.outputs.value }}"
-          echo "Cache key used: ${{ runner.os }}-vscode-build-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}"
+          echo "Cache key used: ${{ runner.os }}-vscode-build-v2-${{ matrix.vscode_arch }}-${{ env.QUALITY }}-${{ steps.commitHash.outputs.value }}"
           echo "=== Current directory structure ==="
           ls -la
           echo "=== Looking for vscode-reh directories ==="
@@ -213,22 +213,22 @@ jobs:
       #       -w /home/builduser/workspace gitpod/openvscode-server-linux-build-agent:bionic-x64 \
       #       /bin/bash -c "npm ci"
 
-      - name: Update product.json
-        if: ${{ steps.buildExists.outputs.exists != 'true' }}
-        run: |
-          set -e
-          nameShort=$(jq --raw-output '.nameShort' product.json)
-          nameLong=$(jq --raw-output '.nameLong' product.json)
-          # if [ "$QUALITY" = "insider" ]; then
-          #   nameShort="$nameShort - Insiders"
-          #   nameLong="$nameLong - Insiders"
-          # fi
-          setQuality="setpath([\"quality\"]; \"$QUALITY\")"
-          setNameShort="setpath([\"nameShort\"]; \"$nameShort\")"
-          setNameLong="setpath([\"nameLong\"]; \"$nameLong\")"
-          jqCommands="${setQuality} | ${setNameShort} | ${setNameLong}"
-          cat product.json | jq "${jqCommands}" > product.json.tmp
-          mv product.json.tmp product.json
+      # - name: Update product.json
+      #   if: ${{ steps.buildExists.outputs.exists != 'true' }}
+      #   run: |
+      #     set -e
+      #     nameShort=$(jq --raw-output '.nameShort' product.json)
+      #     nameLong=$(jq --raw-output '.nameLong' product.json)
+      #     # if [ "$QUALITY" = "insider" ]; then
+      #     #   nameShort="$nameShort - Insiders"
+      #     #   nameLong="$nameLong - Insiders"
+      #     # fi
+      #     setQuality="setpath([\"quality\"]; \"$QUALITY\")"
+      #     setNameShort="setpath([\"nameShort\"]; \"$nameShort\")"
+      #     setNameLong="setpath([\"nameLong\"]; \"$nameLong\")"
+      #     jqCommands="${setQuality} | ${setNameShort} | ${setNameLong}"
+      #     cat product.json | jq "${jqCommands}" > product.json.tmp
+      #     mv product.json.tmp product.json
 
       - name: Build Code Server
         if: ${{ steps.buildExists.outputs.exists != 'true' }}
@@ -288,7 +288,6 @@ jobs:
           fi
           
           release_commit=$(git rev-parse "${RELEASE_COMMIT}")
-          # quality_name=$([ "$QUALITY" = "insider" ] && echo "-insiders" || echo "")
           name="gopicode-server-v${version}-linux-${{ matrix.vscode_arch }}"
           
           echo "Packaging with version: ${version}"
