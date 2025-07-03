@@ -234,16 +234,6 @@ jobs:
         if: ${{ steps.buildExists.outputs.exists != 'true' }}
         run: |
           set -e
-          base_commit_msg="code web server initial commit"
-          base_commit=$(git log --pretty="%H" --max-count=1 --grep "${base_commit_msg}")
-          if [ -z "$base_commit" ]; then
-            echo "Could not find base commit"
-            exit 1
-          fi
-          distro_commit=$(git rev-parse "${base_commit}"~)
-          echo "distro_commit: ${distro_commit}"
-
-          VSCODE_DISTRO_COMMIT="${distro_commit}" \
           npm run gulp vscode-reh-web-linux-${{ matrix.vscode_arch }}-min
         env:
           DISABLE_V8_COMPILE_CACHE: 1
